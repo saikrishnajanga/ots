@@ -1,0 +1,13 @@
+{
+  "name": "ots",
+  "version": "1.0.0",
+  "description": "Order Tracking System (OTS) — E-commerce order management app",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
