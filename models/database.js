@@ -1,19 +1,25 @@
 // ======================================================
 // database.js — SQLite Database Layer for OTS
-// Replaces JSON file storage with reliable SQLite
+// Local: uses data/ots.db
+// Vercel: uses /tmp/ots.db (writable temp directory)
 // ======================================================
 
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
+const IS_SERVERLESS = !!process.env.VERCEL;
 const DATA_DIR = path.join(__dirname, '..', 'data');
-const DB_PATH = path.join(DATA_DIR, 'ots.db');
+
+// On Vercel: /tmp is writable. On local: use data/ folder
+const DB_PATH = IS_SERVERLESS ? '/tmp/ots.db' : path.join(DATA_DIR, 'ots.db');
+
+console.log(`[database] Opening SQLite at: ${DB_PATH} (${IS_SERVERLESS ? 'serverless' : 'local'})`);
 
 // Open (or create) the database
 const db = new Database(DB_PATH);
 
-// Enable WAL mode for better concurrent read performance
+// Enable WAL mode for better performance
 db.pragma('journal_mode = WAL');
 
 // ── Create Tables ──────────────────────────────────────
@@ -78,7 +84,7 @@ function seedFromJSON() {
 
   for (const table of tables) {
     const count = db.prepare(`SELECT COUNT(*) as c FROM ${table}`).get().c;
-    if (count > 0) continue; // Already has data — skip
+    if (count > 0) continue;
 
     const jsonFile = path.join(DATA_DIR, `${table}.json`);
     if (!fs.existsSync(jsonFile)) continue;
@@ -90,7 +96,6 @@ function seedFromJSON() {
       console.log(`[database] Seeding ${table} from ${table}.json (${data.length} rows)...`);
 
       if (table === 'orders') {
-        // Orders have nested 'items' array — store as JSON string
         const stmt = db.prepare(`
           INSERT OR IGNORE INTO orders (id, userId, userName, items, total, status, paymentStatus, paymentMethod, createdAt, updatedAt, approvedAt)
           VALUES (@id, @userId, @userName, @items, @total, @status, @paymentStatus, @paymentMethod, @createdAt, @updatedAt, @approvedAt)
@@ -98,17 +103,11 @@ function seedFromJSON() {
         const insertMany = db.transaction((rows) => {
           for (const row of rows) {
             stmt.run({
-              id: row.id,
-              userId: row.userId,
-              userName: row.userName,
-              items: JSON.stringify(row.items),
-              total: row.total,
-              status: row.status || 'pending',
-              paymentStatus: row.paymentStatus || 'unpaid',
-              paymentMethod: row.paymentMethod || 'cash',
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt || null,
-              approvedAt: row.approvedAt || null
+              id: row.id, userId: row.userId, userName: row.userName,
+              items: JSON.stringify(row.items), total: row.total,
+              status: row.status || 'pending', paymentStatus: row.paymentStatus || 'unpaid',
+              paymentMethod: row.paymentMethod || 'cash', createdAt: row.createdAt,
+              updatedAt: row.updatedAt || null, approvedAt: row.approvedAt || null
             });
           }
         });
@@ -121,15 +120,10 @@ function seedFromJSON() {
         const insertMany = db.transaction((rows) => {
           for (const row of rows) {
             stmt.run({
-              id: row.id,
-              userId: row.userId,
-              userName: row.userName,
-              productName: row.productName,
-              description: row.description || '',
-              status: row.status || 'pending',
-              shopkeeperNote: row.shopkeeperNote || '',
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt || null
+              id: row.id, userId: row.userId, userName: row.userName,
+              productName: row.productName, description: row.description || '',
+              status: row.status || 'pending', shopkeeperNote: row.shopkeeperNote || '',
+              createdAt: row.createdAt, updatedAt: row.updatedAt || null
             });
           }
         });
@@ -142,20 +136,15 @@ function seedFromJSON() {
         const insertMany = db.transaction((rows) => {
           for (const row of rows) {
             stmt.run({
-              id: row.id,
-              name: row.name,
-              price: row.price,
-              description: row.description || '',
-              image: row.image || '',
-              stock: row.stock || 0,
-              shopkeeperId: row.shopkeeperId || 'SHOP-001',
+              id: row.id, name: row.name, price: row.price,
+              description: row.description || '', image: row.image || '',
+              stock: row.stock || 0, shopkeeperId: row.shopkeeperId || 'SHOP-001',
               createdAt: row.createdAt
             });
           }
         });
         insertMany(data);
       } else {
-        // users / shopkeepers — same schema
         const stmt = db.prepare(`
           INSERT OR IGNORE INTO ${table} (id, name, username, password, createdAt)
           VALUES (@id, @name, @username, @password, @createdAt)
@@ -163,11 +152,8 @@ function seedFromJSON() {
         const insertMany = db.transaction((rows) => {
           for (const row of rows) {
             stmt.run({
-              id: row.id,
-              name: row.name,
-              username: row.username,
-              password: row.password,
-              createdAt: row.createdAt
+              id: row.id, name: row.name, username: row.username,
+              password: row.password, createdAt: row.createdAt
             });
           }
         });
@@ -183,5 +169,4 @@ function seedFromJSON() {
 
 seedFromJSON();
 
-// ── Export the database instance ───────────────────────
 module.exports = db;
