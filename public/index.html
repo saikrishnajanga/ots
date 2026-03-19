@@ -17,21 +17,21 @@
   .login-bg {
     position: fixed; inset: 0; z-index: 0; overflow: hidden;
     background:
-      radial-gradient(ellipse at 20% 20%, rgba(34,197,94,0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(59,130,246,0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.05) 0%, transparent 60%);
+      radial-gradient(ellipse at 20% 20%, rgba(34,197,94,0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(59,130,246,0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.1) 0%, transparent 60%);
   }
 
   /* Floating icons */
   .float-icon {
-    position: absolute; opacity: 0.07; font-size: 36px;
+    position: absolute; opacity: 0.2; font-size: 36px;
     animation: floatUp linear infinite;
     pointer-events: none; user-select: none;
   }
   @keyframes floatUp {
     0% { transform: translateY(100vh) rotate(0deg) scale(0.6); opacity: 0; }
-    10% { opacity: 0.07; }
-    90% { opacity: 0.07; }
+    10% { opacity: 0.2; }
+    90% { opacity: 0.2; }
     100% { transform: translateY(-100px) rotate(360deg) scale(1); opacity: 0; }
   }
 
@@ -41,9 +41,9 @@
     animation: orbFloat ease-in-out infinite;
     pointer-events: none;
   }
-  .glow-orb.green { width: 300px; height: 300px; background: rgba(34,197,94,0.12); top: 10%; left: 10%; animation-duration: 8s; }
-  .glow-orb.blue { width: 250px; height: 250px; background: rgba(59,130,246,0.12); bottom: 15%; right: 10%; animation-duration: 10s; animation-delay: 2s; }
-  .glow-orb.purple { width: 200px; height: 200px; background: rgba(139,92,246,0.08); top: 50%; left: 60%; animation-duration: 12s; animation-delay: 4s; }
+  .glow-orb.green { width: 350px; height: 350px; background: rgba(34,197,94,0.25); top: 10%; left: 10%; animation-duration: 8s; }
+  .glow-orb.blue { width: 300px; height: 300px; background: rgba(59,130,246,0.25); bottom: 15%; right: 10%; animation-duration: 10s; animation-delay: 2s; }
+  .glow-orb.purple { width: 250px; height: 250px; background: rgba(139,92,246,0.18); top: 50%; left: 60%; animation-duration: 12s; animation-delay: 4s; }
 
   @keyframes orbFloat {
     0%, 100% { transform: translate(0, 0) scale(1); }
@@ -56,8 +56,8 @@
   .grid-overlay {
     position: absolute; inset: 0;
     background-image:
-      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
     background-size: 60px 60px;
     animation: gridShift 20s linear infinite;
   }
@@ -68,10 +68,10 @@
   }
   @keyframes gridShift { 0% { transform: translate(0,0); } 100% { transform: translate(60px,60px); } }
 
-  [data-theme="light"] .float-icon { opacity: 0.06; }
-  [data-theme="light"] .glow-orb.green { background: rgba(34,197,94,0.08); }
-  [data-theme="light"] .glow-orb.blue { background: rgba(59,130,246,0.08); }
-  [data-theme="light"] .glow-orb.purple { background: rgba(139,92,246,0.06); }
+  [data-theme="light"] .float-icon { opacity: 0.15; }
+  [data-theme="light"] .glow-orb.green { background: rgba(34,197,94,0.15); }
+  [data-theme="light"] .glow-orb.blue { background: rgba(59,130,246,0.15); }
+  [data-theme="light"] .glow-orb.purple { background: rgba(139,92,246,0.1); }
 
   .login-container { position: relative; z-index: 1; }
 </style>
