@@ -42,6 +42,7 @@ function init() {
     sessionStorage.removeItem('ots_session');
     window.location.href = '/';
   }
+  setupDropzone();
 }
 
 
@@ -219,6 +220,7 @@ function openProductModal(product) {
   document.getElementById('prod-edit-id').value = '';
   document.getElementById('prod-modal-title').textContent = 'Add Product';
   document.getElementById('prod-submit-btn').innerHTML = '<span>Add Product</span>';
+  resetImageUpload();
 }
 
 function editProduct(p) {
@@ -231,11 +233,70 @@ function editProduct(p) {
   document.getElementById('prod-stock').value = p.stock;
   document.getElementById('prod-desc').value = p.description;
   document.getElementById('prod-image').value = p.image;
+  if (p.image) { showImagePreview(p.image); } else { resetImageUpload(); }
 }
 
 function closeProductModal(e) {
   if (e && e.target !== document.getElementById('product-modal')) return;
   document.getElementById('product-modal').style.display = 'none';
+  resetImageUpload();
+}
+
+// ── Image Upload ──
+let _uploadedImageData = '';
+
+function setupDropzone() {
+  const dz = document.getElementById('image-dropzone');
+  if (!dz) return;
+  dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); if (e.dataTransfer.files.length) handleImageFile(e.dataTransfer.files[0]); });
+}
+
+function handleImageFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    _uploadedImageData = e.target.result;
+    document.getElementById('prod-image').value = _uploadedImageData;
+    showImagePreview(_uploadedImageData);
+  };
+  reader.readAsDataURL(file);
+}
+
+function previewURLImage(url) {
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    showImagePreview(url);
+  }
+}
+
+function showImagePreview(src) {
+  const dz = document.getElementById('image-dropzone');
+  const preview = document.getElementById('upload-preview-img');
+  const placeholder = document.getElementById('upload-placeholder');
+  const removeBtn = document.getElementById('upload-remove-btn');
+  dz.classList.add('has-image');
+  preview.src = src; preview.style.display = 'block';
+  placeholder.style.display = 'none';
+  removeBtn.style.display = 'flex';
+}
+
+function removeUploadedImage() {
+  resetImageUpload();
+  document.getElementById('prod-image').value = '';
+  _uploadedImageData = '';
+}
+
+function resetImageUpload() {
+  const dz = document.getElementById('image-dropzone');
+  const preview = document.getElementById('upload-preview-img');
+  const placeholder = document.getElementById('upload-placeholder');
+  const removeBtn = document.getElementById('upload-remove-btn');
+  if (dz) dz.classList.remove('has-image', 'dragover');
+  if (preview) { preview.style.display = 'none'; preview.src = ''; }
+  if (placeholder) placeholder.style.display = 'block';
+  if (removeBtn) removeBtn.style.display = 'none';
+  _uploadedImageData = '';
 }
 
 async function handleProductSubmit(e) {

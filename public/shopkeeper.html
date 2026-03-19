@@ -100,8 +100,18 @@
         <input class="form-input" type="text" id="prod-desc" placeholder="Brief description..." />
       </div>
       <div class="form-group">
-        <label class="form-label">Image URL</label>
-        <input class="form-input" type="text" id="prod-image" placeholder="https://... (or leave empty)" />
+        <label class="form-label">Product Image</label>
+        <div class="image-upload-zone" id="image-dropzone" onclick="document.getElementById('prod-image-file').click()">
+          <div id="upload-placeholder">
+            <div class="upload-icon">📸</div>
+            <div class="upload-text">Drag & drop an image or <strong>click to browse</strong></div>
+            <div class="upload-text" style="margin-top:6px;font-size:11px;">Or paste an image URL below</div>
+          </div>
+          <img id="upload-preview-img" class="upload-preview" style="display:none;" />
+          <button type="button" id="upload-remove-btn" class="upload-remove" style="display:none;" onclick="event.stopPropagation(); removeUploadedImage()">✕</button>
+        </div>
+        <input type="file" id="prod-image-file" accept="image/*" style="display:none;" onchange="handleImageFile(this.files[0])" />
+        <input class="form-input" type="text" id="prod-image" placeholder="Or paste image URL here..." style="margin-top:8px;font-size:12px;" oninput="previewURLImage(this.value)" />
       </div>
       <div class="modal-actions">
         <button type="button" class="btn-secondary" onclick="closeProductModal()">Cancel</button>
