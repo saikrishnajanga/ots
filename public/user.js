@@ -7,17 +7,10 @@ let session = null;
 let allProducts = [];
 let selectedProduct = null;
 
-// ── Anti-lag: data hashes + loading guards ──
-let _lastProductHash = '';
-let _lastOrderHash = '';
-let _lastRequestHash = '';
+// ── Anti-lag: loading guards ──
 let _loadingProducts = false;
 let _loadingOrders = false;
 let _loadingRequests = false;
-
-function dataHash(data) {
-  return JSON.stringify(data);
-}
 
 // ── Init ──
 function init() {
@@ -78,18 +71,14 @@ function logout() { localStorage.removeItem('ots_session'); sessionStorage.remov
 // ══════════════════════════════════════════
 
 async function loadProducts() {
-  if (_loadingProducts) return; // Prevent overlapping fetches
+  if (_loadingProducts) return;
   _loadingProducts = true;
   try {
     const res = await fetch('/api/products');
     const data = await res.json();
     if (data.success) {
-      const hash = dataHash(data.products);
-      if (hash !== _lastProductHash) {
-        _lastProductHash = hash;
-        allProducts = data.products;
-        renderProducts(allProducts);
-      }
+      allProducts = data.products;
+      renderProducts(allProducts);
     } else {
       console.error('Failed to load products:', data.message);
       showToast('Failed to load products', 'error');
@@ -177,9 +166,6 @@ async function placeOrder() {
     if (data.success) {
       showToast(data.message, 'success');
       closeOrderModal();
-      // Force refresh after placing order
-      _lastProductHash = '';
-      _lastOrderHash = '';
       loadProducts();
       loadOrders();
     } else { showToast(data.message, 'error'); }
@@ -191,17 +177,13 @@ async function placeOrder() {
 // ══════════════════════════════════════════
 
 async function loadOrders() {
-  if (_loadingOrders) return; // Prevent overlapping fetches
+  if (_loadingOrders) return;
   _loadingOrders = true;
   try {
     const res = await fetch('/api/orders', { headers: headers() });
     const data = await res.json();
     if (data.success) {
-      const hash = dataHash(data.orders);
-      if (hash !== _lastOrderHash) {
-        _lastOrderHash = hash;
-        renderOrders(data.orders);
-      }
+      renderOrders(data.orders);
     } else {
       console.error('Failed to load orders:', data.message);
       showToast('Failed to load orders', 'error');
@@ -257,24 +239,19 @@ async function submitRequest() {
       document.getElementById('req-name').value = '';
       document.getElementById('req-desc').value = '';
       hideRequestForm();
-      _lastRequestHash = '';
       loadRequests();
     } else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
 }
 
 async function loadRequests() {
-  if (_loadingRequests) return; // Prevent overlapping fetches
+  if (_loadingRequests) return;
   _loadingRequests = true;
   try {
     const res = await fetch('/api/requests', { headers: headers() });
     const data = await res.json();
     if (data.success) {
-      const hash = dataHash(data.requests);
-      if (hash !== _lastRequestHash) {
-        _lastRequestHash = hash;
-        renderRequests(data.requests);
-      }
+      renderRequests(data.requests);
     } else {
       console.error('Failed to load requests:', data.message);
       showToast('Failed to load requests', 'error');
@@ -324,23 +301,19 @@ function showToast(msg, type = 'success') {
 // Auto-refresh data when tab becomes visible again
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && session) {
-    // Force full refresh when tab regains focus
-    _lastProductHash = '';
-    _lastOrderHash = '';
-    _lastRequestHash = '';
     loadProducts();
     loadOrders();
     loadRequests();
   }
 });
 
-// Auto-poll every 30 seconds for new products and order updates
+// Auto-poll every 60 seconds for new products and order updates
 setInterval(() => {
   if (session && document.visibilityState === 'visible') {
     loadProducts();
     loadOrders();
     loadRequests();
   }
-}, 30000);
+}, 60000);
 
 init();
