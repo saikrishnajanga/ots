@@ -12,9 +12,7 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 // Detect if running on Vercel (read-only filesystem)
 const IS_SERVERLESS = !!process.env.VERCEL;
 
-// In-memory cache for serverless environments
-// On Vercel, data is loaded from JSON files on cold start,
-// then kept in memory (resets on new cold start)
+// In-memory cache — always kept in sync with disk on local
 const memoryStore = {};
 
 /**
@@ -23,7 +21,7 @@ const memoryStore = {};
  * @returns {Array} - Parsed array from the file
  */
 function readData(filename) {
-  // If serverless, check memory first
+  // On serverless, always use memory cache after first load
   if (IS_SERVERLESS && memoryStore[filename]) {
     return memoryStore[filename];
   }
@@ -33,15 +31,12 @@ function readData(filename) {
     const raw = fs.readFileSync(filePath, 'utf-8');
     const data = JSON.parse(raw);
 
-    // Cache in memory for serverless
-    if (IS_SERVERLESS) {
-      memoryStore[filename] = data;
-    }
+    // Always update memory cache to stay in sync
+    memoryStore[filename] = data;
 
     return data;
   } catch (err) {
-    console.error(`Error reading ${filename}:`, err.message);
-    // Initialize empty in memory
+    console.error(`[jsonStore] Error reading ${filename}:`, err.message);
     if (IS_SERVERLESS) {
       memoryStore[filename] = [];
     }
@@ -52,7 +47,7 @@ function readData(filename) {
 /**
  * Write data to a JSON file
  * On Vercel: saves to memory only (read-only filesystem)
- * On local: saves to actual JSON file on disk
+ * On local: saves to actual JSON file on disk + verifies the write
  * @param {string} filename - Name of JSON file
  * @param {Array} data - Array of objects to save
  */
@@ -60,14 +55,26 @@ function writeData(filename, data) {
   // Always update memory cache
   memoryStore[filename] = data;
 
-  // On local: also write to disk for persistence
+  // On local: write to disk AND verify
   if (!IS_SERVERLESS) {
     try {
       const filePath = path.join(DATA_DIR, filename);
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+      const jsonStr = JSON.stringify(data, null, 2);
+      fs.writeFileSync(filePath, jsonStr, 'utf-8');
+
+      // Verify write: read back and compare length
+      const verify = fs.readFileSync(filePath, 'utf-8');
+      const verifyData = JSON.parse(verify);
+      if (verifyData.length !== data.length) {
+        console.error(`[jsonStore] WRITE VERIFICATION FAILED for ${filename}! Expected ${data.length} items, got ${verifyData.length}`);
+      } else {
+        console.log(`[jsonStore] ✓ ${filename} saved (${data.length} items)`);
+      }
     } catch (err) {
-      console.error(`Error writing ${filename}:`, err.message);
+      console.error(`[jsonStore] Error writing ${filename}:`, err.message);
     }
+  } else {
+    console.log(`[jsonStore] ✓ ${filename} saved to memory (${data.length} items) [serverless]`);
   }
 }
 

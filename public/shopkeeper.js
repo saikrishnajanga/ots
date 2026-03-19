@@ -8,15 +8,21 @@ let session = null;
 // ── Init ──
 function init() {
   try {
-    const s = localStorage.getItem('ots_session');
+    // Try localStorage first, then sessionStorage as fallback
+    let s = localStorage.getItem('ots_session');
+    if (!s) s = sessionStorage.getItem('ots_session');
     if (!s) { window.location.href = '/'; return; }
     session = JSON.parse(s);
     // Validate session has all required fields
     if (!session || !session.role || !session.token || session.role !== 'shopkeeper') {
       localStorage.removeItem('ots_session');
+      sessionStorage.removeItem('ots_session');
       window.location.href = '/';
       return;
     }
+    // Keep both storages in sync
+    localStorage.setItem('ots_session', JSON.stringify(session));
+    sessionStorage.setItem('ots_session', JSON.stringify(session));
     document.getElementById('shop-name').textContent = `Welcome, ${session.name || 'Shopkeeper'}`;
     const theme = localStorage.getItem('ots_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', theme);
@@ -24,6 +30,7 @@ function init() {
   } catch (e) {
     // Corrupt session — clear and redirect
     localStorage.removeItem('ots_session');
+    sessionStorage.removeItem('ots_session');
     window.location.href = '/';
   }
 }
@@ -49,7 +56,7 @@ function toggleTheme() {
   localStorage.setItem('ots_theme', next);
 }
 
-function logout() { localStorage.removeItem('ots_session'); window.location.href = '/'; }
+function logout() { localStorage.removeItem('ots_session'); sessionStorage.removeItem('ots_session'); window.location.href = '/'; }
 
 // ══════════════════════════════════════════
 //  PRODUCTS
@@ -62,8 +69,14 @@ async function loadProducts() {
     if (data.success) {
       document.getElementById('s-products').textContent = data.products.length;
       renderProducts(data.products);
+    } else {
+      console.error('Failed to load products:', data.message);
+      showToast('Failed to load products: ' + (data.message || 'Unknown error'), 'error');
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('Network error loading products:', e);
+    showToast('Could not load products. Check your connection.', 'error');
+  }
 }
 
 function renderProducts(products) {
@@ -163,8 +176,14 @@ async function loadOrders() {
       document.getElementById('s-orders').textContent = data.orders.length;
       document.getElementById('s-pending').textContent = data.orders.filter(o => o.status === 'pending').length;
       renderOrders(data.orders);
+    } else {
+      console.error('Failed to load orders:', data.message);
+      showToast('Failed to load orders: ' + (data.message || 'Unknown error'), 'error');
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('Network error loading orders:', e);
+    showToast('Could not load orders. Check your connection.', 'error');
+  }
 }
 
 function renderOrders(orders) {
@@ -217,8 +236,14 @@ async function loadRequests() {
     if (data.success) {
       document.getElementById('s-requests').textContent = data.requests.filter(r => r.status === 'pending').length;
       renderRequests(data.requests);
+    } else {
+      console.error('Failed to load requests:', data.message);
+      showToast('Failed to load requests: ' + (data.message || 'Unknown error'), 'error');
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('Network error loading requests:', e);
+    showToast('Could not load requests. Check your connection.', 'error');
+  }
 }
 
 function renderRequests(reqs) {
@@ -274,5 +299,12 @@ function showToast(msg, type = 'success') {
   clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => toast.classList.remove('show'), 3500);
 }
+
+// Auto-refresh data when tab becomes visible again
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && session) {
+    loadAll();
+  }
+});
 
 init();

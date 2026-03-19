@@ -9,20 +9,34 @@ let isRegister = false;
 // Check if already logged in
 function checkSession() {
   try {
-    const raw = localStorage.getItem('ots_session');
+    // Try localStorage first, then sessionStorage as fallback
+    let raw = localStorage.getItem('ots_session');
+    let source = 'localStorage';
+    if (!raw) {
+      raw = sessionStorage.getItem('ots_session');
+      source = 'sessionStorage';
+    }
     if (raw) {
       const session = JSON.parse(raw);
       // Validate session has required fields (prevents old/corrupt sessions from crashing)
       if (session && session.role && session.token) {
+        console.log('[OTS] Session restored from ' + source + ' for: ' + session.username);
+        // Ensure both storages are in sync
+        localStorage.setItem('ots_session', raw);
+        sessionStorage.setItem('ots_session', raw);
         window.location.href = session.role === 'shopkeeper' ? '/shopkeeper' : '/user';
         return;
       }
-      // Invalid session — remove it
+      // Invalid session — remove it from both storages
+      console.warn('[OTS] Invalid session found, clearing');
       localStorage.removeItem('ots_session');
+      sessionStorage.removeItem('ots_session');
     }
   } catch (e) {
     // Corrupt localStorage data — clear it
+    console.error('[OTS] Corrupt session data, clearing:', e.message);
     localStorage.removeItem('ots_session');
+    sessionStorage.removeItem('ots_session');
   }
   const theme = localStorage.getItem('ots_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', theme);
@@ -83,7 +97,11 @@ async function handleAuth(e) {
     });
     const data = await res.json();
     if (data.success) {
-      localStorage.setItem('ots_session', JSON.stringify({ token: data.token, ...data.user }));
+      const sessionData = JSON.stringify({ token: data.token, ...data.user });
+      // Save to BOTH storages for maximum persistence
+      localStorage.setItem('ots_session', sessionData);
+      sessionStorage.setItem('ots_session', sessionData);
+      console.log('[OTS] Session saved for: ' + data.user.username);
       showToast(data.message, 'success');
       setTimeout(() => {
         window.location.href = data.user.role === 'shopkeeper' ? '/shopkeeper' : '/user';
