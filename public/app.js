@@ -8,14 +8,26 @@ let isRegister = false;
 
 // Check if already logged in
 function checkSession() {
-  const session = localStorage.getItem('ots_session');
-  if (session) {
-    const { role } = JSON.parse(session);
-    window.location.href = role === 'shopkeeper' ? '/shopkeeper' : '/user';
+  try {
+    const raw = localStorage.getItem('ots_session');
+    if (raw) {
+      const session = JSON.parse(raw);
+      // Validate session has required fields (prevents old/corrupt sessions from crashing)
+      if (session && session.role && session.token) {
+        window.location.href = session.role === 'shopkeeper' ? '/shopkeeper' : '/user';
+        return;
+      }
+      // Invalid session — remove it
+      localStorage.removeItem('ots_session');
+    }
+  } catch (e) {
+    // Corrupt localStorage data — clear it
+    localStorage.removeItem('ots_session');
   }
   const theme = localStorage.getItem('ots_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', theme);
 }
+
 
 function selectRole(role) {
   selectedRole = role;

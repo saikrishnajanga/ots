@@ -7,15 +7,27 @@ let session = null;
 
 // ── Init ──
 function init() {
-  const s = localStorage.getItem('ots_session');
-  if (!s) { window.location.href = '/'; return; }
-  session = JSON.parse(s);
-  if (session.role !== 'shopkeeper') { window.location.href = '/'; return; }
-  document.getElementById('shop-name').textContent = `Welcome, ${session.name}`;
-  const theme = localStorage.getItem('ots_theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', theme);
-  loadAll();
+  try {
+    const s = localStorage.getItem('ots_session');
+    if (!s) { window.location.href = '/'; return; }
+    session = JSON.parse(s);
+    // Validate session has all required fields
+    if (!session || !session.role || !session.token || session.role !== 'shopkeeper') {
+      localStorage.removeItem('ots_session');
+      window.location.href = '/';
+      return;
+    }
+    document.getElementById('shop-name').textContent = `Welcome, ${session.name || 'Shopkeeper'}`;
+    const theme = localStorage.getItem('ots_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    loadAll();
+  } catch (e) {
+    // Corrupt session — clear and redirect
+    localStorage.removeItem('ots_session');
+    window.location.href = '/';
+  }
 }
+
 
 function headers() {
   return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` };
