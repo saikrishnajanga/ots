@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OTS — User Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="top-nav">
+  <div class="nav-content">
+    <div class="nav-brand">
+      <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></div>
+      <div><h1 class="nav-title">User Dashboard</h1><p class="nav-user" id="user-name">Welcome</p></div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn-icon-only" onclick="toggleTheme()" title="Theme"><svg id="theme-icon" viewBox="0 0 24 24"><path d="M9.37 5.51A7.35 7.35 0 0 0 9.1 7.5c0 4.08 3.32 7.4 7.4 7.4.68 0 1.35-.09 1.99-.27A7.014 7.014 0 0 1 12 19c-3.86 0-7-3.14-7-7 0-2.93 1.81-5.45 4.37-6.49zM12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+      <button class="btn-icon-only" onclick="logout()" title="Logout"><svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg></button>
+    </div>
+  </div>
+  <!-- Tab Navigation -->
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('products', this)">🛒 Products</button>
+    <button class="tab" onclick="switchTab('orders', this)">📦 My Orders</button>
+    <button class="tab" onclick="switchTab('requests', this)">📝 Requests</button>
+  </div>
+</nav>
+
+<main class="main-content">
+
+  <!-- Products Tab -->
+  <section id="tab-products" class="tab-content active">
+    <div class="section-header">
+      <h2>Browse Products</h2>
+      <div class="search-box" style="max-width:300px;">
+        <svg class="search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input class="search-input" type="text" id="product-search" placeholder="Search products..." oninput="filterProducts()" />
+      </div>
+    </div>
+    <div class="product-grid" id="product-list"></div>
+  </section>
+
+  <!-- Orders Tab -->
+  <section id="tab-orders" class="tab-content" style="display:none;">
+    <div class="section-header"><h2>My Orders</h2></div>
+    <div id="order-list" class="orders-list"></div>
+  </section>
+
+  <!-- Requests Tab -->
+  <section id="tab-requests" class="tab-content" style="display:none;">
+    <div class="section-header">
+      <h2>Product Requests</h2>
+      <button class="btn-sm btn-csv" onclick="showRequestForm()">+ New Request</button>
+    </div>
+    <div id="request-form-area" style="display:none;">
+      <div class="card" style="padding:20px; margin-bottom:16px;">
+        <h3 style="margin-bottom:12px;">Request a Product</h3>
+        <div class="form-group">
+          <label class="form-label">Product Name</label>
+          <input class="form-input" type="text" id="req-name" placeholder="e.g., Gaming Mouse" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description (optional)</label>
+          <input class="form-input" type="text" id="req-desc" placeholder="Any specific details..." />
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn-primary" onclick="submitRequest()"><span>Submit Request</span></button>
+          <button class="btn-secondary" onclick="hideRequestForm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div id="request-list" class="orders-list"></div>
+  </section>
+
+</main>
+
+<!-- Order Modal -->
+<div class="modal-overlay" id="order-modal" style="display:none;" onclick="closeOrderModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="order-modal-title">Place Order</h2>
+      <button class="btn-icon-only" onclick="closeOrderModal()"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+    </div>
+    <div id="order-modal-body">
+      <div class="form-group">
+        <label class="form-label">Product</label>
+        <p id="order-product-name" style="font-size:16px;font-weight:700;"></p>
+        <p id="order-product-price" style="color:var(--green);font-weight:700;"></p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantity</label>
+        <div class="stepper-wrapper">
+          <button type="button" class="stepper-btn" onclick="stepOrderQty(-1)">−</button>
+          <input class="stepper-value" type="number" id="order-qty" value="1" min="1" max="100" step="1" />
+          <button type="button" class="stepper-btn" onclick="stepOrderQty(1)">+</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Method</label>
+        <select class="form-input form-select" id="order-payment">
+          <option value="upi">UPI</option>
+          <option value="card">Credit/Debit Card</option>
+          <option value="netbanking">Net Banking</option>
+          <option value="cash">Cash on Delivery</option>
+        </select>
+      </div>
+      <div class="order-summary-box" id="order-summary">
+        <span>Total:</span> <strong id="order-total-display">₹0.00</strong>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeOrderModal()">Cancel</button>
+      <button class="btn-primary" id="place-order-btn" onclick="placeOrder()">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+        <span>Pay & Place Order</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" id="toast-icon"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script src="/user.js"></script>
+</body>
+</html>

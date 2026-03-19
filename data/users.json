@@ -1,0 +1,23 @@
+[
+  {
+    "id": "USR-001",
+    "name": "Sai Krishna",
+    "username": "sai",
+    "password": "sai123",
+    "createdAt": "2026-03-15T10:00:00.000Z"
+  },
+  {
+    "id": "USR-002",
+    "name": "Demo User",
+    "username": "demo",
+    "password": "demo",
+    "createdAt": "2026-03-15T10:00:00.000Z"
+  },
+  {
+    "id": "USR-003",
+    "name": "SAIKRISHNA",
+    "username": "SAI5",
+    "password": "SAIKRISHNA",
+    "createdAt": "2026-03-19T08:12:32.856Z"
+  }
+]

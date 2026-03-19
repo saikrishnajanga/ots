@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OTS — Shopkeeper Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="top-nav">
+  <div class="nav-content">
+    <div class="nav-brand">
+      <div class="nav-logo" style="background:linear-gradient(135deg,#f97316,#ef4444);"><svg viewBox="0 0 24 24"><path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z"/></svg></div>
+      <div><h1 class="nav-title">Shopkeeper Dashboard</h1><p class="nav-user" id="shop-name">Welcome</p></div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn-icon-only" onclick="toggleTheme()" title="Theme"><svg id="theme-icon" viewBox="0 0 24 24"><path d="M9.37 5.51A7.35 7.35 0 0 0 9.1 7.5c0 4.08 3.32 7.4 7.4 7.4.68 0 1.35-.09 1.99-.27A7.014 7.014 0 0 1 12 19c-3.86 0-7-3.14-7-7 0-2.93 1.81-5.45 4.37-6.49zM12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+      <button class="btn-icon-only" onclick="logout()" title="Logout"><svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg></button>
+    </div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('products', this)">📦 Products</button>
+    <button class="tab" onclick="switchTab('orders', this)">🛒 Orders</button>
+    <button class="tab" onclick="switchTab('requests', this)">📝 Requests</button>
+  </div>
+</nav>
+
+<main class="main-content">
+
+  <!-- Stats Row -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card stat-total"><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z"/></svg></div><div class="stat-info"><span class="stat-number" id="s-products">0</span><span class="stat-label">Products</span></div></div>
+    <div class="stat-card stat-processing"><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg></div><div class="stat-info"><span class="stat-number" id="s-orders">0</span><span class="stat-label">Orders</span></div></div>
+    <div class="stat-card stat-shipped"><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg></div><div class="stat-info"><span class="stat-number" id="s-pending">0</span><span class="stat-label">Pending</span></div></div>
+    <div class="stat-card stat-delivered"><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div><div class="stat-info"><span class="stat-number" id="s-requests">0</span><span class="stat-label">Requests</span></div></div>
+  </div>
+
+  <!-- Products Tab -->
+  <section id="tab-products" class="tab-content active">
+    <div class="section-header">
+      <h2>Manage Products</h2>
+      <button class="btn-sm btn-csv" onclick="openProductModal()">+ Add Product</button>
+    </div>
+    <div class="product-grid" id="shop-product-list"></div>
+  </section>
+
+  <!-- Orders Tab -->
+  <section id="tab-orders" class="tab-content" style="display:none;">
+    <div class="section-header"><h2>All Customer Orders</h2></div>
+    <div id="shop-order-list" class="orders-list"></div>
+  </section>
+
+  <!-- Requests Tab -->
+  <section id="tab-requests" class="tab-content" style="display:none;">
+    <div class="section-header"><h2>Product Requests from Users</h2></div>
+    <div id="shop-request-list" class="orders-list"></div>
+  </section>
+
+</main>
+
+<!-- Add/Edit Product Modal -->
+<div class="modal-overlay" id="product-modal" style="display:none;" onclick="closeProductModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="prod-modal-title">Add Product</h2>
+      <button class="btn-icon-only" onclick="closeProductModal()"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+    </div>
+    <form id="product-form" onsubmit="handleProductSubmit(event)">
+      <input type="hidden" id="prod-edit-id" />
+      <div class="form-group">
+        <label class="form-label">Product Name</label>
+        <input class="form-input" type="text" id="prod-name" placeholder="e.g., Wireless Mouse" required />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Price (₹)</label>
+          <input class="form-input" type="number" id="prod-price" placeholder="999" step="0.01" min="1" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock</label>
+          <input class="form-input" type="number" id="prod-stock" placeholder="50" min="0" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <input class="form-input" type="text" id="prod-desc" placeholder="Brief description..." />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Image URL</label>
+        <input class="form-input" type="text" id="prod-image" placeholder="https://... (or leave empty)" />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" onclick="closeProductModal()">Cancel</button>
+        <button type="submit" class="btn-primary" id="prod-submit-btn"><span>Add Product</span></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Order Status Modal -->
+<div class="modal-overlay" id="status-modal" style="display:none;" onclick="closeStatusModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Update Order Status</h2>
+      <button class="btn-icon-only" onclick="closeStatusModal()"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+    </div>
+    <input type="hidden" id="status-order-id" />
+    <div class="form-group">
+      <label class="form-label">New Status</label>
+      <select class="form-input form-select" id="status-select">
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="shipped">Shipped</option>
+        <option value="delivered">Delivered</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeStatusModal()">Cancel</button>
+      <button class="btn-primary" onclick="updateOrderStatus()"><span>Update</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Request Action Modal -->
+<div class="modal-overlay" id="req-modal" style="display:none;" onclick="closeReqModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Handle Request</h2>
+      <button class="btn-icon-only" onclick="closeReqModal()"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+    </div>
+    <input type="hidden" id="req-action-id" />
+    <p id="req-action-info" style="margin-bottom:16px;font-size:14px;"></p>
+    <div class="form-group">
+      <label class="form-label">Note to User (optional)</label>
+      <input class="form-input" type="text" id="req-note" placeholder="e.g., Product added to our catalog!" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="handleRequestAction('rejected')">Reject</button>
+      <button class="btn-primary" onclick="handleRequestAction('approved')"><span>Approve</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" id="toast-icon"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script src="/shopkeeper.js"></script>
+</body>
+</html>

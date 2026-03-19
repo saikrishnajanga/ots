@@ -1,0 +1,42 @@
+[
+  {
+    "id": "PRD-001",
+    "name": "Wireless Headphones",
+    "price": 3999,
+    "description": "Premium Bluetooth headphones with noise cancellation and 30-hour battery life.",
+    "image": "https://media.wired.com/photos/68cb83e86a7338e553645554/4:3/w_5156,h_3867,c_limit/iPhone%2017%20Sage%20SOURCE%20Julian%20Chokkattu.jpg",
+    "stock": 24,
+    "shopkeeperId": "SHOP-001",
+    "createdAt": "2026-03-15T10:00:00.000Z"
+  },
+  {
+    "id": "PRD-002",
+    "name": "USB-C Charging Cable",
+    "price": 999,
+    "description": "Fast-charging braided USB-C cable, 2 meters, supports 100W PD.",
+    "image": "https://placehold.co/300x200/1a1a2e/3b82f6?text=USB-C+Cable",
+    "stock": 100,
+    "shopkeeperId": "SHOP-001",
+    "createdAt": "2026-03-15T10:00:00.000Z"
+  },
+  {
+    "id": "PRD-003",
+    "name": "Laptop Stand",
+    "price": 2499,
+    "description": "Ergonomic aluminium laptop stand with adjustable height and angle.",
+    "image": "https://placehold.co/300x200/1a1a2e/f97316?text=Laptop+Stand",
+    "stock": 15,
+    "shopkeeperId": "SHOP-001",
+    "createdAt": "2026-03-16T09:00:00.000Z"
+  },
+  {
+    "id": "PRD-004",
+    "name": "Mechanical Keyboard",
+    "price": 5499,
+    "description": "RGB mechanical keyboard with Cherry MX Blue switches, 104 keys.",
+    "image": "https://placehold.co/300x200/1a1a2e/8b5cf6?text=Keyboard",
+    "stock": 10,
+    "shopkeeperId": "SHOP-001",
+    "createdAt": "2026-03-16T09:00:00.000Z"
+  }
+]

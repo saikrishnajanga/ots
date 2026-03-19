@@ -1,0 +1,38 @@
+[
+  {
+    "id": "ORD-001",
+    "userId": "USR-001",
+    "userName": "Sai Krishna",
+    "items": [
+      {
+        "productId": "PRD-001",
+        "name": "Wireless Headphones",
+        "qty": 1,
+        "price": 3999
+      }
+    ],
+    "total": 3999,
+    "status": "delivered",
+    "paymentStatus": "paid",
+    "createdAt": "2026-03-16T11:00:00.000Z"
+  },
+  {
+    "id": "ORD-002",
+    "userId": "USR-003",
+    "userName": "SAIKRISHNA",
+    "items": [
+      {
+        "productId": "PRD-001",
+        "name": "Wireless Headphones",
+        "qty": 1,
+        "price": 3999,
+        "lineTotal": 3999
+      }
+    ],
+    "total": 3999,
+    "status": "pending",
+    "paymentStatus": "paid",
+    "paymentMethod": "upi",
+    "createdAt": "2026-03-19T08:12:50.595Z"
+  }
+]
