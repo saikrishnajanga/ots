@@ -34,5 +34,26 @@
     "paymentStatus": "paid",
     "paymentMethod": "upi",
     "createdAt": "2026-03-19T08:12:50.595Z"
+  },
+  {
+    "id": "ORD-003",
+    "userId": "USR-001",
+    "userName": "Sai Krishna",
+    "items": [
+      {
+        "productId": "PRD-005",
+        "name": "Gaming Mouse",
+        "qty": 2,
+        "price": 1999,
+        "lineTotal": 3998
+      }
+    ],
+    "total": 3998,
+    "status": "cancelled",
+    "paymentStatus": "paid",
+    "paymentMethod": "upi",
+    "createdAt": "2026-03-19T12:33:36.000Z",
+    "updatedAt": "2026-03-19T12:34:09.219Z",
+    "approvedAt": "2026-03-19T12:34:09.200Z"
   }
 ]

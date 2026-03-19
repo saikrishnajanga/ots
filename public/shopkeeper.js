@@ -42,6 +42,92 @@ function headers() {
 
 function loadAll() { loadProducts(); loadOrders(); loadRequests(); }
 
+// ── Notification Panel ──
+function toggleNotifPanel() {
+  const panel = document.getElementById('notif-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close notification panel when clicking outside
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('notif-panel');
+  const btn = document.getElementById('notif-bell-btn');
+  if (panel && btn && !panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
+
+function updateNotifications(orders, requests) {
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+  const pendingRequests = requests.filter(r => r.status === 'pending');
+  const totalPending = pendingOrders.length + pendingRequests.length;
+
+  // Update badge
+  const badge = document.getElementById('notif-badge');
+  if (totalPending > 0) {
+    badge.textContent = totalPending;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // Update panel body
+  const body = document.getElementById('notif-panel-body');
+  if (totalPending === 0) {
+    body.innerHTML = '<p style="color:var(--text-muted);padding:16px;text-align:center;">No pending items ✓</p>';
+    return;
+  }
+
+  let html = '';
+  pendingOrders.forEach(o => {
+    html += `
+      <div class="notif-item notif-order">
+        <div class="notif-icon">🛒</div>
+        <div class="notif-content">
+          <strong>${o.id}</strong> from <strong>${esc(o.userName)}</strong>
+          <div class="notif-meta">${o.items.map(i => i.name + ' x' + i.qty).join(', ')} — ₹${o.total.toFixed(2)}</div>
+          <div class="notif-meta">${new Date(o.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</div>
+        </div>
+        <div class="notif-actions">
+          <button class="notif-btn notif-approve" onclick="quickApproveOrder('${o.id}')" title="Approve">✓</button>
+          <button class="notif-btn notif-reject" onclick="quickRejectOrder('${o.id}')" title="Reject">✗</button>
+        </div>
+      </div>`;
+  });
+  pendingRequests.forEach(r => {
+    html += `
+      <div class="notif-item notif-request">
+        <div class="notif-icon">📝</div>
+        <div class="notif-content">
+          <strong>${esc(r.productName)}</strong> requested by <strong>${esc(r.userName)}</strong>
+          <div class="notif-meta">${r.description || 'No description'}</div>
+        </div>
+        <div class="notif-actions">
+          <button class="notif-btn notif-approve" onclick="openReqModal('${r.id}', '${esc(r.productName).replace(/'/g, "\\\'")}')" title="Handle">⚡</button>
+        </div>
+      </div>`;
+  });
+  body.innerHTML = html;
+}
+
+async function quickApproveOrder(id) {
+  try {
+    const res = await fetch(`/api/orders/${id}/status`, { method: 'PUT', headers: headers(), body: JSON.stringify({ status: 'approved' }) });
+    const data = await res.json();
+    if (data.success) { showToast(data.message, 'success'); loadAll(); }
+    else { showToast(data.message, 'error'); }
+  } catch (e) { showToast('Network error', 'error'); }
+}
+
+async function quickRejectOrder(id) {
+  try {
+    const res = await fetch(`/api/orders/${id}/status`, { method: 'PUT', headers: headers(), body: JSON.stringify({ status: 'cancelled' }) });
+    const data = await res.json();
+    if (data.success) { showToast(data.message, 'success'); loadAll(); }
+    else { showToast(data.message, 'error'); }
+  } catch (e) { showToast('Network error', 'error'); }
+}
+
 // ── Tabs ──
 function switchTab(tab, el) {
   document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
@@ -168,14 +254,19 @@ async function deleteProduct(id) {
 //  ORDERS
 // ══════════════════════════════════════════
 
+let cachedOrders = [];
+let cachedRequests = [];
+
 async function loadOrders() {
   try {
     const res = await fetch('/api/orders', { headers: headers() });
     const data = await res.json();
     if (data.success) {
+      cachedOrders = data.orders;
       document.getElementById('s-orders').textContent = data.orders.length;
       document.getElementById('s-pending').textContent = data.orders.filter(o => o.status === 'pending').length;
       renderOrders(data.orders);
+      updateNotifications(cachedOrders, cachedRequests);
     } else {
       console.error('Failed to load orders:', data.message);
       showToast('Failed to load orders: ' + (data.message || 'Unknown error'), 'error');
@@ -234,8 +325,10 @@ async function loadRequests() {
     const res = await fetch('/api/requests', { headers: headers() });
     const data = await res.json();
     if (data.success) {
+      cachedRequests = data.requests;
       document.getElementById('s-requests').textContent = data.requests.filter(r => r.status === 'pending').length;
       renderRequests(data.requests);
+      updateNotifications(cachedOrders, cachedRequests);
     } else {
       console.error('Failed to load requests:', data.message);
       showToast('Failed to load requests: ' + (data.message || 'Unknown error'), 'error');
@@ -306,5 +399,12 @@ document.addEventListener('visibilitychange', () => {
     loadAll();
   }
 });
+
+// Auto-poll every 15 seconds for new orders/requests
+setInterval(() => {
+  if (session && document.visibilityState === 'visible') {
+    loadAll();
+  }
+}, 15000);
 
 init();

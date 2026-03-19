@@ -1,7 +1,7 @@
 // ======================================================
 // orderController.js — Order Logic
 // User: Place order, view own orders, mock payment
-// Shopkeeper: View all orders, update status
+// Shopkeeper: View all orders, approve/reject, update status
 // ======================================================
 
 const store = require('../models/jsonStore');
@@ -9,7 +9,7 @@ const math = require('../mathmodule');
 
 /**
  * POST /api/orders
- * User only — place a new order
+ * User only — place a new order (stock is NOT reduced yet — waits for shopkeeper approval)
  * Body: { items: [{ productId, qty }], paymentMethod }
  */
 function placeOrder(req, res) {
@@ -26,7 +26,7 @@ function placeOrder(req, res) {
   let orderItems = [];
   let total = 0;
 
-  // Validate each item and calculate totals
+  // Validate each item and calculate totals (but do NOT reduce stock yet)
   for (const item of items) {
     const product = products.find(p => p.id === item.productId);
     if (!product) {
@@ -52,16 +52,11 @@ function placeOrder(req, res) {
       lineTotal
     });
     total += lineTotal;
-
-    // Reduce stock
-    const prodIndex = products.findIndex(p => p.id === product.id);
-    products[prodIndex].stock -= qty;
   }
 
-  // Save updated product stock
-  store.writeData('products.json', products);
+  // NOTE: Stock is NOT reduced here — it will be reduced when shopkeeper approves
 
-  // Create the order
+  // Create the order with status 'pending' (awaiting shopkeeper approval)
   const orders = store.readData('orders.json');
   const newOrder = {
     id: store.getNextId('orders.json', 'ORD'),
@@ -80,7 +75,7 @@ function placeOrder(req, res) {
 
   res.status(201).json({
     success: true,
-    message: `Order ${newOrder.id} placed successfully! Total: ₹${total.toFixed(2)}`,
+    message: `Order ${newOrder.id} submitted! Awaiting shopkeeper approval. Total: ₹${total.toFixed(2)}`,
     order: newOrder
   });
 }
@@ -109,6 +104,10 @@ function getOrders(req, res) {
  * PUT /api/orders/:id/status
  * Shopkeeper only — update order status
  * Body: { status } — 'pending', 'approved', 'shipped', 'delivered', 'cancelled'
+ *
+ * Stock management:
+ *   - 'approved'  → reduces stock for each item
+ *   - 'cancelled' → restores stock if order was previously approved
  */
 function updateOrderStatus(req, res) {
   const { status } = req.body;
@@ -128,13 +127,47 @@ function updateOrderStatus(req, res) {
     return res.status(404).json({ success: false, message: 'Order not found' });
   }
 
+  const previousStatus = orders[index].status;
+
+  // ── Stock management on status change ──
+  const products = store.readData('products.json');
+
+  // Approving: reduce stock for each item
+  if (status === 'approved' && previousStatus === 'pending') {
+    for (const item of orders[index].items) {
+      const pIdx = products.findIndex(p => p.id === item.productId);
+      if (pIdx !== -1) {
+        if (products[pIdx].stock < item.qty) {
+          return res.status(400).json({
+            success: false,
+            message: `Not enough stock for "${item.name}". Available: ${products[pIdx].stock}, Requested: ${item.qty}`
+          });
+        }
+        products[pIdx].stock -= item.qty;
+      }
+    }
+    store.writeData('products.json', products);
+  }
+
+  // Cancelling an approved/shipped order: restore stock
+  if (status === 'cancelled' && ['approved', 'shipped'].includes(previousStatus)) {
+    for (const item of orders[index].items) {
+      const pIdx = products.findIndex(p => p.id === item.productId);
+      if (pIdx !== -1) {
+        products[pIdx].stock += item.qty;
+      }
+    }
+    store.writeData('products.json', products);
+  }
+
   orders[index].status = status;
   orders[index].updatedAt = new Date().toISOString();
+  if (status === 'approved') orders[index].approvedAt = new Date().toISOString();
   store.writeData('orders.json', orders);
 
   res.json({
     success: true,
-    message: `Order ${orders[index].id} status updated to "${status}"`,
+    message: `Order ${orders[index].id} ${status === 'approved' ? 'approved ✓' : status === 'cancelled' ? 'cancelled' : `status updated to "${status}"`}`,
     order: orders[index]
   });
 }

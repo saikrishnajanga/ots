@@ -290,4 +290,13 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// Auto-poll every 30 seconds for new products and order updates
+setInterval(() => {
+  if (session && document.visibilityState === 'visible') {
+    loadProducts();
+    loadOrders();
+    loadRequests();
+  }
+}, 30000);
+
 init();

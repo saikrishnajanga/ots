@@ -38,5 +38,15 @@
     "stock": 10,
     "shopkeeperId": "SHOP-001",
     "createdAt": "2026-03-16T09:00:00.000Z"
+  },
+  {
+    "id": "PRD-005",
+    "name": "Gaming Mouse",
+    "price": 1999,
+    "description": "RGB gaming mouse",
+    "image": "https://placehold.co/300x200/1a1a2e/94a3b8?text=No+Image",
+    "stock": 50,
+    "shopkeeperId": "SHOP-001",
+    "createdAt": "2026-03-19T12:32:40.539Z"
   }
 ]
