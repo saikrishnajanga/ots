@@ -7,6 +7,18 @@ let session = null;
 let allProducts = [];
 let selectedProduct = null;
 
+// ── Anti-lag: data hashes + loading guards ──
+let _lastProductHash = '';
+let _lastOrderHash = '';
+let _lastRequestHash = '';
+let _loadingProducts = false;
+let _loadingOrders = false;
+let _loadingRequests = false;
+
+function dataHash(data) {
+  return JSON.stringify(data);
+}
+
 // ── Init ──
 function init() {
   try {
@@ -66,12 +78,18 @@ function logout() { localStorage.removeItem('ots_session'); sessionStorage.remov
 // ══════════════════════════════════════════
 
 async function loadProducts() {
+  if (_loadingProducts) return; // Prevent overlapping fetches
+  _loadingProducts = true;
   try {
     const res = await fetch('/api/products');
     const data = await res.json();
     if (data.success) {
-      allProducts = data.products;
-      renderProducts(allProducts);
+      const hash = dataHash(data.products);
+      if (hash !== _lastProductHash) {
+        _lastProductHash = hash;
+        allProducts = data.products;
+        renderProducts(allProducts);
+      }
     } else {
       console.error('Failed to load products:', data.message);
       showToast('Failed to load products', 'error');
@@ -80,6 +98,8 @@ async function loadProducts() {
     console.error('Network error loading products:', e);
     document.getElementById('product-list').innerHTML = '<p style="color:var(--text-muted);padding:40px;text-align:center;">Could not load products</p>';
     showToast('Could not load products. Check your connection.', 'error');
+  } finally {
+    _loadingProducts = false;
   }
 }
 
@@ -101,7 +121,7 @@ function renderProducts(products) {
           <span class="product-price">₹${p.price.toFixed(2)}</span>
           <span class="product-stock ${p.stock > 0 ? 'in-stock' : 'out-stock'}">${p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}</span>
         </div>
-        <button class="btn-primary btn-full" ${p.stock < 1 ? 'disabled style="opacity:0.5"' : ''} onclick='openOrderModal(${JSON.stringify(p).replace(/'/g, "\\'")})'>
+        <button class="btn-primary btn-full" ${p.stock < 1 ? 'disabled style="opacity:0.5"' : ''} onclick='openOrderModal(${JSON.stringify(p).replace(/'/g, "\\\\'")})'>
           <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
           <span>${p.stock < 1 ? 'Out of Stock' : 'Buy Now'}</span>
         </button>
@@ -157,6 +177,9 @@ async function placeOrder() {
     if (data.success) {
       showToast(data.message, 'success');
       closeOrderModal();
+      // Force refresh after placing order
+      _lastProductHash = '';
+      _lastOrderHash = '';
       loadProducts();
       loadOrders();
     } else { showToast(data.message, 'error'); }
@@ -168,11 +191,17 @@ async function placeOrder() {
 // ══════════════════════════════════════════
 
 async function loadOrders() {
+  if (_loadingOrders) return; // Prevent overlapping fetches
+  _loadingOrders = true;
   try {
     const res = await fetch('/api/orders', { headers: headers() });
     const data = await res.json();
     if (data.success) {
-      renderOrders(data.orders);
+      const hash = dataHash(data.orders);
+      if (hash !== _lastOrderHash) {
+        _lastOrderHash = hash;
+        renderOrders(data.orders);
+      }
     } else {
       console.error('Failed to load orders:', data.message);
       showToast('Failed to load orders', 'error');
@@ -180,6 +209,8 @@ async function loadOrders() {
   } catch (e) {
     console.error('Network error loading orders:', e);
     showToast('Could not load orders. Check your connection.', 'error');
+  } finally {
+    _loadingOrders = false;
   }
 }
 
@@ -226,17 +257,24 @@ async function submitRequest() {
       document.getElementById('req-name').value = '';
       document.getElementById('req-desc').value = '';
       hideRequestForm();
+      _lastRequestHash = '';
       loadRequests();
     } else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
 }
 
 async function loadRequests() {
+  if (_loadingRequests) return; // Prevent overlapping fetches
+  _loadingRequests = true;
   try {
     const res = await fetch('/api/requests', { headers: headers() });
     const data = await res.json();
     if (data.success) {
-      renderRequests(data.requests);
+      const hash = dataHash(data.requests);
+      if (hash !== _lastRequestHash) {
+        _lastRequestHash = hash;
+        renderRequests(data.requests);
+      }
     } else {
       console.error('Failed to load requests:', data.message);
       showToast('Failed to load requests', 'error');
@@ -244,6 +282,8 @@ async function loadRequests() {
   } catch (e) {
     console.error('Network error loading requests:', e);
     showToast('Could not load requests. Check your connection.', 'error');
+  } finally {
+    _loadingRequests = false;
   }
 }
 
@@ -284,6 +324,10 @@ function showToast(msg, type = 'success') {
 // Auto-refresh data when tab becomes visible again
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && session) {
+    // Force full refresh when tab regains focus
+    _lastProductHash = '';
+    _lastOrderHash = '';
+    _lastRequestHash = '';
     loadProducts();
     loadOrders();
     loadRequests();

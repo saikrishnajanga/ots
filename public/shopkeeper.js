@@ -5,6 +5,18 @@
 
 let session = null;
 
+// ── Anti-lag: data hashes + loading guards ──
+let _lastProductHash = '';
+let _lastOrderHash = '';
+let _lastRequestHash = '';
+let _loadingProducts = false;
+let _loadingOrders = false;
+let _loadingRequests = false;
+
+function dataHash(data) {
+  return JSON.stringify(data);
+}
+
 // ── Init ──
 function init() {
   try {
@@ -40,7 +52,11 @@ function headers() {
   return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` };
 }
 
-function loadAll() { loadProducts(); loadOrders(); loadRequests(); }
+// Load all data — notifications are updated once after all loads complete
+async function loadAll() {
+  await Promise.all([loadProducts(), loadOrders(true), loadRequests(true)]);
+  updateNotifications(cachedOrders, cachedRequests);
+}
 
 // ── Notification Panel ──
 function toggleNotifPanel() {
@@ -103,7 +119,7 @@ function updateNotifications(orders, requests) {
           <div class="notif-meta">${r.description || 'No description'}</div>
         </div>
         <div class="notif-actions">
-          <button class="notif-btn notif-approve" onclick="openReqModal('${r.id}', '${esc(r.productName).replace(/'/g, "\\\'")}')" title="Handle">⚡</button>
+          <button class="notif-btn notif-approve" onclick="openReqModal('${r.id}', '${esc(r.productName).replace(/'/g, "\\\\'")}')" title="Handle">⚡</button>
         </div>
       </div>`;
   });
@@ -149,12 +165,18 @@ function logout() { localStorage.removeItem('ots_session'); sessionStorage.remov
 // ══════════════════════════════════════════
 
 async function loadProducts() {
+  if (_loadingProducts) return; // Prevent overlapping fetches
+  _loadingProducts = true;
   try {
     const res = await fetch('/api/products');
     const data = await res.json();
     if (data.success) {
+      const hash = dataHash(data.products);
       document.getElementById('s-products').textContent = data.products.length;
-      renderProducts(data.products);
+      if (hash !== _lastProductHash) {
+        _lastProductHash = hash;
+        renderProducts(data.products);
+      }
     } else {
       console.error('Failed to load products:', data.message);
       showToast('Failed to load products: ' + (data.message || 'Unknown error'), 'error');
@@ -162,6 +184,8 @@ async function loadProducts() {
   } catch (e) {
     console.error('Network error loading products:', e);
     showToast('Could not load products. Check your connection.', 'error');
+  } finally {
+    _loadingProducts = false;
   }
 }
 
@@ -180,7 +204,7 @@ function renderProducts(products) {
           <span class="product-stock ${p.stock > 0 ? 'in-stock' : 'out-stock'}">Stock: ${p.stock}</span>
         </div>
         <div style="display:flex;gap:8px;margin-top:8px;">
-          <button class="btn-primary btn-full" style="flex:1;" onclick='editProduct(${JSON.stringify(p).replace(/'/g, "\\'")})'>
+          <button class="btn-primary btn-full" style="flex:1;" onclick='editProduct(${JSON.stringify(p).replace(/'/g, "\\\\'")})'>
             <svg viewBox="0 0 24 24" style="fill:#fff;width:16px;height:16px;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             <span>Edit</span>
           </button>
@@ -235,7 +259,13 @@ async function handleProductSubmit(e) {
     const method = id ? 'PUT' : 'POST';
     const res = await fetch(url, { method, headers: headers(), body: JSON.stringify(body) });
     const data = await res.json();
-    if (data.success) { showToast(data.message, 'success'); closeProductModal(); loadProducts(); }
+    if (data.success) {
+      showToast(data.message, 'success');
+      closeProductModal();
+      // Force refresh by clearing hash so re-render is guaranteed
+      _lastProductHash = '';
+      loadProducts();
+    }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
 }
@@ -245,7 +275,11 @@ async function deleteProduct(id) {
   try {
     const res = await fetch(`/api/products/${id}`, { method: 'DELETE', headers: headers() });
     const data = await res.json();
-    if (data.success) { showToast(data.message, 'success'); loadProducts(); }
+    if (data.success) {
+      showToast(data.message, 'success');
+      _lastProductHash = '';
+      loadProducts();
+    }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
 }
@@ -257,16 +291,22 @@ async function deleteProduct(id) {
 let cachedOrders = [];
 let cachedRequests = [];
 
-async function loadOrders() {
+async function loadOrders(skipNotif) {
+  if (_loadingOrders) return; // Prevent overlapping fetches
+  _loadingOrders = true;
   try {
     const res = await fetch('/api/orders', { headers: headers() });
     const data = await res.json();
     if (data.success) {
       cachedOrders = data.orders;
+      const hash = dataHash(data.orders);
       document.getElementById('s-orders').textContent = data.orders.length;
       document.getElementById('s-pending').textContent = data.orders.filter(o => o.status === 'pending').length;
-      renderOrders(data.orders);
-      updateNotifications(cachedOrders, cachedRequests);
+      if (hash !== _lastOrderHash) {
+        _lastOrderHash = hash;
+        renderOrders(data.orders);
+      }
+      if (!skipNotif) updateNotifications(cachedOrders, cachedRequests);
     } else {
       console.error('Failed to load orders:', data.message);
       showToast('Failed to load orders: ' + (data.message || 'Unknown error'), 'error');
@@ -274,6 +314,8 @@ async function loadOrders() {
   } catch (e) {
     console.error('Network error loading orders:', e);
     showToast('Could not load orders. Check your connection.', 'error');
+  } finally {
+    _loadingOrders = false;
   }
 }
 
@@ -311,7 +353,13 @@ async function updateOrderStatus() {
   try {
     const res = await fetch(`/api/orders/${id}/status`, { method: 'PUT', headers: headers(), body: JSON.stringify({ status }) });
     const data = await res.json();
-    if (data.success) { showToast(data.message, 'success'); closeStatusModal(); loadOrders(); }
+    if (data.success) {
+      showToast(data.message, 'success');
+      closeStatusModal();
+      _lastOrderHash = '';
+      _lastProductHash = '';
+      loadAll();
+    }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
 }
@@ -320,15 +368,21 @@ async function updateOrderStatus() {
 //  REQUESTS
 // ══════════════════════════════════════════
 
-async function loadRequests() {
+async function loadRequests(skipNotif) {
+  if (_loadingRequests) return; // Prevent overlapping fetches
+  _loadingRequests = true;
   try {
     const res = await fetch('/api/requests', { headers: headers() });
     const data = await res.json();
     if (data.success) {
       cachedRequests = data.requests;
+      const hash = dataHash(data.requests);
       document.getElementById('s-requests').textContent = data.requests.filter(r => r.status === 'pending').length;
-      renderRequests(data.requests);
-      updateNotifications(cachedOrders, cachedRequests);
+      if (hash !== _lastRequestHash) {
+        _lastRequestHash = hash;
+        renderRequests(data.requests);
+      }
+      if (!skipNotif) updateNotifications(cachedOrders, cachedRequests);
     } else {
       console.error('Failed to load requests:', data.message);
       showToast('Failed to load requests: ' + (data.message || 'Unknown error'), 'error');
@@ -336,6 +390,8 @@ async function loadRequests() {
   } catch (e) {
     console.error('Network error loading requests:', e);
     showToast('Could not load requests. Check your connection.', 'error');
+  } finally {
+    _loadingRequests = false;
   }
 }
 
@@ -372,7 +428,12 @@ async function handleRequestAction(status) {
   try {
     const res = await fetch(`/api/requests/${id}`, { method: 'PUT', headers: headers(), body: JSON.stringify({ status, shopkeeperNote: note }) });
     const data = await res.json();
-    if (data.success) { showToast(data.message, 'success'); closeReqModal(); loadRequests(); }
+    if (data.success) {
+      showToast(data.message, 'success');
+      closeReqModal();
+      _lastRequestHash = '';
+      loadAll();
+    }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
 }
@@ -396,15 +457,19 @@ function showToast(msg, type = 'success') {
 // Auto-refresh data when tab becomes visible again
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && session) {
+    // Force full refresh when tab regains focus
+    _lastProductHash = '';
+    _lastOrderHash = '';
+    _lastRequestHash = '';
     loadAll();
   }
 });
 
-// Auto-poll every 15 seconds for new orders/requests
+// Auto-poll every 30 seconds for new orders/requests (increased from 15s to reduce load)
 setInterval(() => {
   if (session && document.visibilityState === 'visible') {
     loadAll();
   }
-}, 15000);
+}, 30000);
 
 init();
