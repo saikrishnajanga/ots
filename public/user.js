@@ -7,27 +7,33 @@ let session = null;
 let allProducts = [];
 let selectedProduct = null;
 
-// ── Anti-lag: loading guards ──
+// ── Anti-flicker: only re-render when data actually changes ──
+let _lastProductData = '';
+let _lastOrderData = '';
+let _lastRequestData = '';
 let _loadingProducts = false;
 let _loadingOrders = false;
 let _loadingRequests = false;
 
+function quickHash(arr) {
+  // Fast shallow hash — just IDs + key fields, not full JSON.stringify
+  if (!arr || arr.length === 0) return '[]';
+  return arr.map(item => item.id + '|' + (item.stock ?? '') + '|' + (item.status ?? '') + '|' + (item.name ?? '')).join(',');
+}
+
 // ── Init ──
 function init() {
   try {
-    // Try localStorage first, then sessionStorage as fallback
     let s = localStorage.getItem('ots_session');
     if (!s) s = sessionStorage.getItem('ots_session');
     if (!s) { window.location.href = '/'; return; }
     session = JSON.parse(s);
-    // Validate session has all required fields
     if (!session || !session.role || !session.token || session.role !== 'user') {
       localStorage.removeItem('ots_session');
       sessionStorage.removeItem('ots_session');
       window.location.href = '/';
       return;
     }
-    // Keep both storages in sync
     localStorage.setItem('ots_session', JSON.stringify(session));
     sessionStorage.setItem('ots_session', JSON.stringify(session));
     document.getElementById('user-name').textContent = `Welcome, ${session.name || 'User'}`;
@@ -37,7 +43,6 @@ function init() {
     loadOrders();
     loadRequests();
   } catch (e) {
-    // Corrupt session — clear and redirect
     localStorage.removeItem('ots_session');
     sessionStorage.removeItem('ots_session');
     window.location.href = '/';
@@ -70,7 +75,7 @@ function logout() { localStorage.removeItem('ots_session'); sessionStorage.remov
 //  PRODUCTS
 // ══════════════════════════════════════════
 
-async function loadProducts() {
+async function loadProducts(forceRender) {
   if (_loadingProducts) return;
   _loadingProducts = true;
   try {
@@ -78,15 +83,16 @@ async function loadProducts() {
     const data = await res.json();
     if (data.success) {
       allProducts = data.products;
-      renderProducts(allProducts);
+      const hash = quickHash(data.products);
+      if (forceRender || hash !== _lastProductData) {
+        _lastProductData = hash;
+        renderProducts(allProducts);
+      }
     } else {
       console.error('Failed to load products:', data.message);
-      showToast('Failed to load products', 'error');
     }
   } catch (e) {
     console.error('Network error loading products:', e);
-    document.getElementById('product-list').innerHTML = '<p style="color:var(--text-muted);padding:40px;text-align:center;">Could not load products</p>';
-    showToast('Could not load products. Check your connection.', 'error');
   } finally {
     _loadingProducts = false;
   }
@@ -110,7 +116,7 @@ function renderProducts(products) {
           <span class="product-price">₹${p.price.toFixed(2)}</span>
           <span class="product-stock ${p.stock > 0 ? 'in-stock' : 'out-stock'}">${p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}</span>
         </div>
-        <button class="btn-primary btn-full" ${p.stock < 1 ? 'disabled style="opacity:0.5"' : ''} onclick='openOrderModal(${JSON.stringify(p).replace(/'/g, "\\\\'")})'>
+        <button class="btn-primary btn-full" ${p.stock < 1 ? 'disabled style="opacity:0.5"' : ''} onclick='openOrderModal(${JSON.stringify(p).replace(/'/g, "\\\\\\'")})'>
           <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
           <span>${p.stock < 1 ? 'Out of Stock' : 'Buy Now'}</span>
         </button>
@@ -166,8 +172,8 @@ async function placeOrder() {
     if (data.success) {
       showToast(data.message, 'success');
       closeOrderModal();
-      loadProducts();
-      loadOrders();
+      loadProducts(true);
+      loadOrders(true);
     } else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); btn.disabled = false; }
 }
@@ -176,21 +182,23 @@ async function placeOrder() {
 //  ORDERS
 // ══════════════════════════════════════════
 
-async function loadOrders() {
+async function loadOrders(forceRender) {
   if (_loadingOrders) return;
   _loadingOrders = true;
   try {
     const res = await fetch('/api/orders', { headers: headers() });
     const data = await res.json();
     if (data.success) {
-      renderOrders(data.orders);
+      const hash = quickHash(data.orders);
+      if (forceRender || hash !== _lastOrderData) {
+        _lastOrderData = hash;
+        renderOrders(data.orders);
+      }
     } else {
       console.error('Failed to load orders:', data.message);
-      showToast('Failed to load orders', 'error');
     }
   } catch (e) {
     console.error('Network error loading orders:', e);
-    showToast('Could not load orders. Check your connection.', 'error');
   } finally {
     _loadingOrders = false;
   }
@@ -239,26 +247,28 @@ async function submitRequest() {
       document.getElementById('req-name').value = '';
       document.getElementById('req-desc').value = '';
       hideRequestForm();
-      loadRequests();
+      loadRequests(true);
     } else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
 }
 
-async function loadRequests() {
+async function loadRequests(forceRender) {
   if (_loadingRequests) return;
   _loadingRequests = true;
   try {
     const res = await fetch('/api/requests', { headers: headers() });
     const data = await res.json();
     if (data.success) {
-      renderRequests(data.requests);
+      const hash = quickHash(data.requests);
+      if (forceRender || hash !== _lastRequestData) {
+        _lastRequestData = hash;
+        renderRequests(data.requests);
+      }
     } else {
       console.error('Failed to load requests:', data.message);
-      showToast('Failed to load requests', 'error');
     }
   } catch (e) {
     console.error('Network error loading requests:', e);
-    showToast('Could not load requests. Check your connection.', 'error');
   } finally {
     _loadingRequests = false;
   }
@@ -298,7 +308,7 @@ function showToast(msg, type = 'success') {
   toastTimeout = setTimeout(() => toast.classList.remove('show'), 3500);
 }
 
-// Auto-refresh data when tab becomes visible again
+// Only refresh when tab becomes visible again (no auto-polling)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && session) {
     loadProducts();
@@ -306,14 +316,5 @@ document.addEventListener('visibilitychange', () => {
     loadRequests();
   }
 });
-
-// Auto-poll every 60 seconds for new products and order updates
-setInterval(() => {
-  if (session && document.visibilityState === 'visible') {
-    loadProducts();
-    loadOrders();
-    loadRequests();
-  }
-}, 60000);
 
 init();

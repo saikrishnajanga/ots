@@ -5,35 +5,39 @@
 
 let session = null;
 
-// ── Anti-lag: loading guards ──
+// ── Anti-flicker: only re-render when data actually changes ──
+let _lastProductData = '';
+let _lastOrderData = '';
+let _lastRequestData = '';
 let _loadingProducts = false;
 let _loadingOrders = false;
 let _loadingRequests = false;
 
+function quickHash(arr) {
+  if (!arr || arr.length === 0) return '[]';
+  return arr.map(item => item.id + '|' + (item.stock ?? '') + '|' + (item.status ?? '') + '|' + (item.name ?? '')).join(',');
+}
+
 // ── Init ──
 function init() {
   try {
-    // Try localStorage first, then sessionStorage as fallback
     let s = localStorage.getItem('ots_session');
     if (!s) s = sessionStorage.getItem('ots_session');
     if (!s) { window.location.href = '/'; return; }
     session = JSON.parse(s);
-    // Validate session has all required fields
     if (!session || !session.role || !session.token || session.role !== 'shopkeeper') {
       localStorage.removeItem('ots_session');
       sessionStorage.removeItem('ots_session');
       window.location.href = '/';
       return;
     }
-    // Keep both storages in sync
     localStorage.setItem('ots_session', JSON.stringify(session));
     sessionStorage.setItem('ots_session', JSON.stringify(session));
     document.getElementById('shop-name').textContent = `Welcome, ${session.name || 'Shopkeeper'}`;
     const theme = localStorage.getItem('ots_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', theme);
-    loadAll();
+    loadAll(true);
   } catch (e) {
-    // Corrupt session — clear and redirect
     localStorage.removeItem('ots_session');
     sessionStorage.removeItem('ots_session');
     window.location.href = '/';
@@ -46,8 +50,8 @@ function headers() {
 }
 
 // Load all data — notifications are updated once after all loads complete
-async function loadAll() {
-  await Promise.all([loadProducts(), loadOrders(true), loadRequests(true)]);
+async function loadAll(forceRender) {
+  await Promise.all([loadProducts(forceRender), loadOrders(true, forceRender), loadRequests(true, forceRender)]);
   updateNotifications(cachedOrders, cachedRequests);
 }
 
@@ -123,7 +127,7 @@ async function quickApproveOrder(id) {
   try {
     const res = await fetch(`/api/orders/${id}/status`, { method: 'PUT', headers: headers(), body: JSON.stringify({ status: 'approved' }) });
     const data = await res.json();
-    if (data.success) { showToast(data.message, 'success'); loadAll(); }
+    if (data.success) { showToast(data.message, 'success'); loadAll(true); }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
 }
@@ -132,7 +136,7 @@ async function quickRejectOrder(id) {
   try {
     const res = await fetch(`/api/orders/${id}/status`, { method: 'PUT', headers: headers(), body: JSON.stringify({ status: 'cancelled' }) });
     const data = await res.json();
-    if (data.success) { showToast(data.message, 'success'); loadAll(); }
+    if (data.success) { showToast(data.message, 'success'); loadAll(true); }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
 }
@@ -157,7 +161,7 @@ function logout() { localStorage.removeItem('ots_session'); sessionStorage.remov
 //  PRODUCTS
 // ══════════════════════════════════════════
 
-async function loadProducts() {
+async function loadProducts(forceRender) {
   if (_loadingProducts) return;
   _loadingProducts = true;
   try {
@@ -165,14 +169,16 @@ async function loadProducts() {
     const data = await res.json();
     if (data.success) {
       document.getElementById('s-products').textContent = data.products.length;
-      renderProducts(data.products);
+      const hash = quickHash(data.products);
+      if (forceRender || hash !== _lastProductData) {
+        _lastProductData = hash;
+        renderProducts(data.products);
+      }
     } else {
       console.error('Failed to load products:', data.message);
-      showToast('Failed to load products: ' + (data.message || 'Unknown error'), 'error');
     }
   } catch (e) {
     console.error('Network error loading products:', e);
-    showToast('Could not load products. Check your connection.', 'error');
   } finally {
     _loadingProducts = false;
   }
@@ -193,7 +199,7 @@ function renderProducts(products) {
           <span class="product-stock ${p.stock > 0 ? 'in-stock' : 'out-stock'}">Stock: ${p.stock}</span>
         </div>
         <div style="display:flex;gap:8px;margin-top:8px;">
-          <button class="btn-primary btn-full" style="flex:1;" onclick='editProduct(${JSON.stringify(p).replace(/'/g, "\\\\'")})'>
+          <button class="btn-primary btn-full" style="flex:1;" onclick='editProduct(${JSON.stringify(p).replace(/'/g, "\\\\\\'")})'>
             <svg viewBox="0 0 24 24" style="fill:#fff;width:16px;height:16px;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             <span>Edit</span>
           </button>
@@ -251,7 +257,7 @@ async function handleProductSubmit(e) {
     if (data.success) {
       showToast(data.message, 'success');
       closeProductModal();
-      loadProducts();
+      loadProducts(true);
     }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
@@ -264,7 +270,7 @@ async function deleteProduct(id) {
     const data = await res.json();
     if (data.success) {
       showToast(data.message, 'success');
-      loadProducts();
+      loadProducts(true);
     }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
@@ -277,7 +283,7 @@ async function deleteProduct(id) {
 let cachedOrders = [];
 let cachedRequests = [];
 
-async function loadOrders(skipNotif) {
+async function loadOrders(skipNotif, forceRender) {
   if (_loadingOrders) return;
   _loadingOrders = true;
   try {
@@ -287,15 +293,17 @@ async function loadOrders(skipNotif) {
       cachedOrders = data.orders;
       document.getElementById('s-orders').textContent = data.orders.length;
       document.getElementById('s-pending').textContent = data.orders.filter(o => o.status === 'pending').length;
-      renderOrders(data.orders);
+      const hash = quickHash(data.orders);
+      if (forceRender || hash !== _lastOrderData) {
+        _lastOrderData = hash;
+        renderOrders(data.orders);
+      }
       if (!skipNotif) updateNotifications(cachedOrders, cachedRequests);
     } else {
       console.error('Failed to load orders:', data.message);
-      showToast('Failed to load orders: ' + (data.message || 'Unknown error'), 'error');
     }
   } catch (e) {
     console.error('Network error loading orders:', e);
-    showToast('Could not load orders. Check your connection.', 'error');
   } finally {
     _loadingOrders = false;
   }
@@ -338,7 +346,7 @@ async function updateOrderStatus() {
     if (data.success) {
       showToast(data.message, 'success');
       closeStatusModal();
-      loadAll();
+      loadAll(true);
     }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
@@ -348,7 +356,7 @@ async function updateOrderStatus() {
 //  REQUESTS
 // ══════════════════════════════════════════
 
-async function loadRequests(skipNotif) {
+async function loadRequests(skipNotif, forceRender) {
   if (_loadingRequests) return;
   _loadingRequests = true;
   try {
@@ -357,15 +365,17 @@ async function loadRequests(skipNotif) {
     if (data.success) {
       cachedRequests = data.requests;
       document.getElementById('s-requests').textContent = data.requests.filter(r => r.status === 'pending').length;
-      renderRequests(data.requests);
+      const hash = quickHash(data.requests);
+      if (forceRender || hash !== _lastRequestData) {
+        _lastRequestData = hash;
+        renderRequests(data.requests);
+      }
       if (!skipNotif) updateNotifications(cachedOrders, cachedRequests);
     } else {
       console.error('Failed to load requests:', data.message);
-      showToast('Failed to load requests: ' + (data.message || 'Unknown error'), 'error');
     }
   } catch (e) {
     console.error('Network error loading requests:', e);
-    showToast('Could not load requests. Check your connection.', 'error');
   } finally {
     _loadingRequests = false;
   }
@@ -407,7 +417,7 @@ async function handleRequestAction(status) {
     if (data.success) {
       showToast(data.message, 'success');
       closeReqModal();
-      loadAll();
+      loadAll(true);
     }
     else { showToast(data.message, 'error'); }
   } catch (e) { showToast('Network error', 'error'); }
@@ -429,18 +439,11 @@ function showToast(msg, type = 'success') {
   toastTimeout = setTimeout(() => toast.classList.remove('show'), 3500);
 }
 
-// Auto-refresh data when tab becomes visible again
+// Only refresh when tab becomes visible (no auto-polling — eliminates flicker)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && session) {
     loadAll();
   }
 });
-
-// Auto-poll every 60 seconds for new orders/requests
-setInterval(() => {
-  if (session && document.visibilityState === 'visible') {
-    loadAll();
-  }
-}, 60000);
 
 init();
