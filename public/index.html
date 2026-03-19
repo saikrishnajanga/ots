@@ -12,6 +12,99 @@
 </head>
 <body>
 
+<style>
+  /* ── Dynamic Login Background ── */
+  .login-bg {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(34,197,94,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(59,130,246,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.05) 0%, transparent 60%);
+  }
+
+  /* Floating icons */
+  .float-icon {
+    position: absolute; opacity: 0.07; font-size: 36px;
+    animation: floatUp linear infinite;
+    pointer-events: none; user-select: none;
+  }
+  @keyframes floatUp {
+    0% { transform: translateY(100vh) rotate(0deg) scale(0.6); opacity: 0; }
+    10% { opacity: 0.07; }
+    90% { opacity: 0.07; }
+    100% { transform: translateY(-100px) rotate(360deg) scale(1); opacity: 0; }
+  }
+
+  /* Glowing orbs */
+  .glow-orb {
+    position: absolute; border-radius: 50%; filter: blur(80px);
+    animation: orbFloat ease-in-out infinite;
+    pointer-events: none;
+  }
+  .glow-orb.green { width: 300px; height: 300px; background: rgba(34,197,94,0.12); top: 10%; left: 10%; animation-duration: 8s; }
+  .glow-orb.blue { width: 250px; height: 250px; background: rgba(59,130,246,0.12); bottom: 15%; right: 10%; animation-duration: 10s; animation-delay: 2s; }
+  .glow-orb.purple { width: 200px; height: 200px; background: rgba(139,92,246,0.08); top: 50%; left: 60%; animation-duration: 12s; animation-delay: 4s; }
+
+  @keyframes orbFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(30px, -20px) scale(1.1); }
+    50% { transform: translate(-20px, 20px) scale(0.95); }
+    75% { transform: translate(15px, 10px) scale(1.05); }
+  }
+
+  /* Grid pattern overlay */
+  .grid-overlay {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridShift 20s linear infinite;
+  }
+  [data-theme="light"] .grid-overlay {
+    background-image:
+      linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+  }
+  @keyframes gridShift { 0% { transform: translate(0,0); } 100% { transform: translate(60px,60px); } }
+
+  [data-theme="light"] .float-icon { opacity: 0.06; }
+  [data-theme="light"] .glow-orb.green { background: rgba(34,197,94,0.08); }
+  [data-theme="light"] .glow-orb.blue { background: rgba(59,130,246,0.08); }
+  [data-theme="light"] .glow-orb.purple { background: rgba(139,92,246,0.06); }
+
+  .login-container { position: relative; z-index: 1; }
+</style>
+
+<!-- Animated Background -->
+<div class="login-bg">
+  <div class="grid-overlay"></div>
+  <div class="glow-orb green"></div>
+  <div class="glow-orb blue"></div>
+  <div class="glow-orb purple"></div>
+</div>
+
+<script>
+  // Spawn floating delivery icons
+  (function() {
+    const icons = ['📦', '🚚', '✅', '🛒', '📋', '🏷️', '📬', '🎯', '⭐', '💳'];
+    const bg = document.querySelector('.login-bg');
+    function spawn() {
+      const el = document.createElement('div');
+      el.className = 'float-icon';
+      el.textContent = icons[Math.floor(Math.random() * icons.length)];
+      el.style.left = Math.random() * 100 + '%';
+      el.style.fontSize = (24 + Math.random() * 28) + 'px';
+      el.style.animationDuration = (12 + Math.random() * 18) + 's';
+      el.style.animationDelay = Math.random() * 2 + 's';
+      bg.appendChild(el);
+      setTimeout(() => el.remove(), 32000);
+    }
+    for (let i = 0; i < 12; i++) setTimeout(spawn, i * 800);
+    setInterval(spawn, 2500);
+  })();
+</script>
+
 <div class="login-container">
   <div class="login-card">
     <div class="login-logo">
