@@ -1,10 +1,10 @@
 // ======================================================
-// jsonStore.js — SQLite-backed Data Store for OTS
-// Always uses SQLite (local: data/ots.db, Vercel: /tmp/ots.db)
-// Same API: readData, writeData, getNextId
+// jsonStore.js — Async Data Store for OTS
+// Works with both Turso (cloud) and better-sqlite3 (local)
+// Same API: readData, writeData, getNextId (all async now)
 // ======================================================
 
-const db = require('./database');
+const { client, dbReady } = require('./database');
 
 const TABLE_MAP = {
   'users.json': 'users',
@@ -14,12 +14,14 @@ const TABLE_MAP = {
   'requests.json': 'requests'
 };
 
-function readData(filename) {
+async function readData(filename) {
+  await dbReady;
   const table = TABLE_MAP[filename];
   if (!table) { console.error(`[jsonStore] Unknown file: ${filename}`); return []; }
 
   try {
-    const rows = db.prepare(`SELECT * FROM ${table}`).all();
+    const result = await client.execute(`SELECT * FROM ${table}`);
+    let rows = result.rows;
 
     if (table === 'orders') {
       return rows.map(row => ({
@@ -42,46 +44,35 @@ function readData(filename) {
   }
 }
 
-function writeData(filename, data) {
+async function writeData(filename, data) {
+  await dbReady;
   const table = TABLE_MAP[filename];
   if (!table) { console.error(`[jsonStore] Unknown file: ${filename}`); return; }
 
   try {
-    const transaction = db.transaction(() => {
-      db.prepare(`DELETE FROM ${table}`).run();
-      if (!data || data.length === 0) return;
+    await client.execute(`DELETE FROM ${table}`);
 
+    if (!data || data.length === 0) return;
+
+    for (const row of data) {
       if (table === 'orders') {
-        const stmt = db.prepare(`INSERT INTO orders (id, userId, userName, items, total, status, paymentStatus, paymentMethod, createdAt, updatedAt, approvedAt) VALUES (@id, @userId, @userName, @items, @total, @status, @paymentStatus, @paymentMethod, @createdAt, @updatedAt, @approvedAt)`);
-        for (const row of data) {
-          stmt.run({ id: row.id, userId: row.userId, userName: row.userName, items: JSON.stringify(row.items), total: row.total, status: row.status || 'pending', paymentStatus: row.paymentStatus || 'unpaid', paymentMethod: row.paymentMethod || 'cash', createdAt: row.createdAt, updatedAt: row.updatedAt || null, approvedAt: row.approvedAt || null });
-        }
+        await client.execute({ sql: `INSERT INTO orders (id, userId, userName, items, total, status, paymentStatus, paymentMethod, createdAt, updatedAt, approvedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [row.id, row.userId, row.userName, JSON.stringify(row.items), row.total, row.status || 'pending', row.paymentStatus || 'unpaid', row.paymentMethod || 'cash', row.createdAt, row.updatedAt || null, row.approvedAt || null] });
       } else if (table === 'requests') {
-        const stmt = db.prepare(`INSERT INTO requests (id, userId, userName, productName, description, status, shopkeeperNote, createdAt, updatedAt) VALUES (@id, @userId, @userName, @productName, @description, @status, @shopkeeperNote, @createdAt, @updatedAt)`);
-        for (const row of data) {
-          stmt.run({ id: row.id, userId: row.userId, userName: row.userName, productName: row.productName, description: row.description || '', status: row.status || 'pending', shopkeeperNote: row.shopkeeperNote || '', createdAt: row.createdAt, updatedAt: row.updatedAt || null });
-        }
+        await client.execute({ sql: `INSERT INTO requests (id, userId, userName, productName, description, status, shopkeeperNote, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [row.id, row.userId, row.userName, row.productName, row.description || '', row.status || 'pending', row.shopkeeperNote || '', row.createdAt, row.updatedAt || null] });
       } else if (table === 'products') {
-        const stmt = db.prepare(`INSERT INTO products (id, name, price, description, image, stock, shopkeeperId, createdAt) VALUES (@id, @name, @price, @description, @image, @stock, @shopkeeperId, @createdAt)`);
-        for (const row of data) {
-          stmt.run({ id: row.id, name: row.name, price: row.price, description: row.description || '', image: row.image || '', stock: row.stock || 0, shopkeeperId: row.shopkeeperId || 'SHOP-001', createdAt: row.createdAt });
-        }
+        await client.execute({ sql: `INSERT INTO products (id, name, price, description, image, stock, shopkeeperId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, args: [row.id, row.name, row.price, row.description || '', row.image || '', row.stock || 0, row.shopkeeperId || 'SHOP-001', row.createdAt] });
       } else {
-        const stmt = db.prepare(`INSERT INTO ${table} (id, name, username, password, createdAt) VALUES (@id, @name, @username, @password, @createdAt)`);
-        for (const row of data) {
-          stmt.run({ id: row.id, name: row.name, username: row.username, password: row.password, createdAt: row.createdAt });
-        }
+        await client.execute({ sql: `INSERT INTO ${table} (id, name, username, password, createdAt) VALUES (?, ?, ?, ?, ?)`, args: [row.id, row.name, row.username, row.password, row.createdAt] });
       }
-    });
-    transaction();
-    console.log(`[jsonStore] ✓ ${filename} saved (${data.length} items) [SQLite]`);
+    }
+    console.log(`[jsonStore] ✓ ${filename} saved (${data.length} items)`);
   } catch (err) {
     console.error(`[jsonStore] Error writing ${filename}:`, err.message);
   }
 }
 
-function getNextId(filename, prefix) {
-  const data = readData(filename);
+async function getNextId(filename, prefix) {
+  const data = await readData(filename);
   if (data.length === 0) return `${prefix}-001`;
 
   const nums = data.map(item => {

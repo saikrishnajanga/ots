@@ -7,57 +7,34 @@
 const store = require('../models/jsonStore');
 const math = require('../mathmodule');
 
-/**
- * GET /api/products
- * Public — returns all products
- */
-function getAllProducts(req, res) {
-  const products = store.readData('products.json');
+async function getAllProducts(req, res) {
+  const products = await store.readData('products.json');
   res.json({ success: true, count: products.length, products });
 }
 
-/**
- * GET /api/products/:id
- * Public — returns a single product
- */
-function getProduct(req, res) {
-  const products = store.readData('products.json');
+async function getProduct(req, res) {
+  const products = await store.readData('products.json');
   const product = products.find(p => p.id === req.params.id);
-
-  if (!product) {
-    return res.status(404).json({ success: false, message: 'Product not found' });
-  }
-
+  if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
   res.json({ success: true, product });
 }
 
-/**
- * POST /api/products
- * Shopkeeper only — add a new product
- * Body: { name, price, description, image, stock }
- */
-function addProduct(req, res) {
+async function addProduct(req, res) {
   const { name, price, description, image, stock } = req.body;
 
   if (!name || !price) {
-    return res.status(400).json({
-      success: false,
-      message: 'Product name and price are required'
-    });
+    return res.status(400).json({ success: false, message: 'Product name and price are required' });
   }
-
   if (!math.isPositiveNumber(Number(price))) {
     return res.status(400).json({ success: false, message: 'Price must be a positive number' });
   }
 
-  const products = store.readData('products.json');
-
-  // Look up shopkeeper's ID from their username
-  const shopkeepers = store.readData('shopkeepers.json');
+  const products = await store.readData('products.json');
+  const shopkeepers = await store.readData('shopkeepers.json');
   const shopkeeper = shopkeepers.find(s => s.username === req.user.username);
 
   const newProduct = {
-    id: store.getNextId('products.json', 'PRD'),
+    id: await store.getNextId('products.json', 'PRD'),
     name,
     price: Number(price),
     description: description || '',
@@ -68,7 +45,7 @@ function addProduct(req, res) {
   };
 
   products.push(newProduct);
-  store.writeData('products.json', products);
+  await store.writeData('products.json', products);
 
   res.status(201).json({
     success: true,
@@ -77,17 +54,11 @@ function addProduct(req, res) {
   });
 }
 
-/**
- * PUT /api/products/:id
- * Shopkeeper only — update a product
- */
-function updateProduct(req, res) {
-  const products = store.readData('products.json');
+async function updateProduct(req, res) {
+  const products = await store.readData('products.json');
   const index = products.findIndex(p => p.id === req.params.id);
 
-  if (index === -1) {
-    return res.status(404).json({ success: false, message: 'Product not found' });
-  }
+  if (index === -1) return res.status(404).json({ success: false, message: 'Product not found' });
 
   const { name, price, description, image, stock } = req.body;
 
@@ -97,7 +68,7 @@ function updateProduct(req, res) {
   if (image) products[index].image = image;
   if (stock !== undefined) products[index].stock = Number(stock);
 
-  store.writeData('products.json', products);
+  await store.writeData('products.json', products);
 
   res.json({
     success: true,
@@ -106,20 +77,14 @@ function updateProduct(req, res) {
   });
 }
 
-/**
- * DELETE /api/products/:id
- * Shopkeeper only — delete a product
- */
-function deleteProduct(req, res) {
-  const products = store.readData('products.json');
+async function deleteProduct(req, res) {
+  const products = await store.readData('products.json');
   const index = products.findIndex(p => p.id === req.params.id);
 
-  if (index === -1) {
-    return res.status(404).json({ success: false, message: 'Product not found' });
-  }
+  if (index === -1) return res.status(404).json({ success: false, message: 'Product not found' });
 
   const deleted = products.splice(index, 1)[0];
-  store.writeData('products.json', products);
+  await store.writeData('products.json', products);
 
   res.json({
     success: true,
