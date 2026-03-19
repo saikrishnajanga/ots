@@ -8,6 +8,22 @@
   ],
   "routes": [
     {
+      "src": "/user",
+      "dest": "app.js"
+    },
+    {
+      "src": "/shopkeeper",
+      "dest": "app.js"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "app.js"
+    },
+    {
+      "src": "/(.*\\.(js|css|html|png|jpg|svg|ico))",
+      "dest": "/public/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "app.js"
     }

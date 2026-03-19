@@ -1,7 +1,6 @@
 // ======================================================
 // jsonStore.js — JSON File Read/Write Helper
-// Provides simple functions to read/write JSON files
-// This replaces a database for our beginner project
+// Works on local (file I/O) and Vercel (in-memory fallback)
 // ======================================================
 
 const fs = require('fs');
@@ -10,34 +9,65 @@ const path = require('path');
 // Path to the data folder
 const DATA_DIR = path.join(__dirname, '..', 'data');
 
+// Detect if running on Vercel (read-only filesystem)
+const IS_SERVERLESS = !!process.env.VERCEL;
+
+// In-memory cache for serverless environments
+// On Vercel, data is loaded from JSON files on cold start,
+// then kept in memory (resets on new cold start)
+const memoryStore = {};
+
 /**
  * Read data from a JSON file
  * @param {string} filename - Name of JSON file (e.g., 'users.json')
  * @returns {Array} - Parsed array from the file
  */
 function readData(filename) {
+  // If serverless, check memory first
+  if (IS_SERVERLESS && memoryStore[filename]) {
+    return memoryStore[filename];
+  }
+
   try {
     const filePath = path.join(DATA_DIR, filename);
     const raw = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(raw);
+    const data = JSON.parse(raw);
+
+    // Cache in memory for serverless
+    if (IS_SERVERLESS) {
+      memoryStore[filename] = data;
+    }
+
+    return data;
   } catch (err) {
-    // If file doesn't exist or is corrupt, return empty array
     console.error(`Error reading ${filename}:`, err.message);
+    // Initialize empty in memory
+    if (IS_SERVERLESS) {
+      memoryStore[filename] = [];
+    }
     return [];
   }
 }
 
 /**
  * Write data to a JSON file
+ * On Vercel: saves to memory only (read-only filesystem)
+ * On local: saves to actual JSON file on disk
  * @param {string} filename - Name of JSON file
  * @param {Array} data - Array of objects to save
  */
 function writeData(filename, data) {
-  try {
-    const filePath = path.join(DATA_DIR, filename);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (err) {
-    console.error(`Error writing ${filename}:`, err.message);
+  // Always update memory cache
+  memoryStore[filename] = data;
+
+  // On local: also write to disk for persistence
+  if (!IS_SERVERLESS) {
+    try {
+      const filePath = path.join(DATA_DIR, filename);
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (err) {
+      console.error(`Error writing ${filename}:`, err.message);
+    }
   }
 }
 
@@ -60,5 +90,4 @@ function getNextId(filename, prefix) {
   return `${prefix}-${String(max + 1).padStart(3, '0')}`;
 }
 
-// Export all functions
 module.exports = { readData, writeData, getNextId };

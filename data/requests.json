@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "id": "REQ-001",
+    "userId": "USR-003",
+    "userName": "SAIKRISHNA",
+    "productName": "NEED A MOUSE",
+    "description": "",
+    "status": "approved",
+    "shopkeeperNote": "",
+    "createdAt": "2026-03-19T08:15:10.497Z",
+    "updatedAt": "2026-03-19T08:15:43.073Z"
+  }
+]
